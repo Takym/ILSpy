@@ -1,0 +1,13 @@
+﻿ILSpy はオープンソースの .NET のアセンブリブラウザ及び逆コンパイラです。
+
+ウェブサイト：https://ilspy.net/
+不具合の報告：https://github.com/icsharpcode/ILSpy/issues/new/choose
+
+Copyright 2011-2022 AlphaSierraPapa for the ILSpy team
+現在および過去の貢献者：https://github.com/icsharpcode/ILSpy/graphs/contributors
+
+ILSpy はMITライセンスに基づき配布されています。
+
+ILSpy は他のオープンソースライブラリを使用して魔法を実現しています。
+我々はそれらのコンポーネントの開発者に感謝します。
+著作権情報とライセンスはサードパーティ通知を確認してください。
