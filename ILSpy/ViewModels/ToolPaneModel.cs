@@ -17,6 +17,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 using System.Windows;
+using System.Windows.Input;
 
 namespace ICSharpCode.ILSpy.ViewModels
 {
@@ -29,5 +30,11 @@ namespace ICSharpCode.ILSpy.ViewModels
 		}
 
 		public abstract DataTemplate Template { get; }
+
+		public KeyGesture ShortcutKey { get; protected set; }
+
+		public string Icon { get; protected set; }
+
+		public ICommand AssociatedCommand { get; set; }
 	}
 }

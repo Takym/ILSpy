@@ -219,6 +219,11 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 		/// Controls whether C# 9 "record" class types are supported.
 		/// </summary>
 		public bool SupportRecordClasses { get; set; }
+
+		/// <summary>
+		/// Controls whether C# 10 "record" struct types are supported.
+		/// </summary>
+		public bool SupportRecordStructs { get; set; }
 		#endregion
 
 		#region Convert Type
@@ -1593,8 +1598,14 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 				if (v - ai == 0)
 					break;
 				v = 1 / (v - ai);
-				if (Math.Abs(v) > long.MaxValue)
-					break; // value cannot be stored in fraction without overflow
+				if (Math.Abs(v) >= long.MaxValue)
+				{
+					// values greater than long.MaxValue cannot be stored in fraction without overflow.
+					// Because the implicit conversion of long.MaxValue to double loses precision,
+					// it's possible that a value v that is strictly greater than long.MaxValue will
+					// nevertheless compare equal, so we use ">=" to compensate.
+					break;
+				}
 			}
 
 			if (m[1, 0] == 0)
@@ -1768,6 +1779,10 @@ namespace ICSharpCode.Decompiler.CSharp.Syntax
 						{
 							modifiers |= Modifiers.Ref;
 						}
+					}
+					if (SupportRecordStructs && typeDefinition.IsRecord)
+					{
+						classType = ClassType.RecordStruct;
 					}
 					break;
 				case TypeKind.Enum:

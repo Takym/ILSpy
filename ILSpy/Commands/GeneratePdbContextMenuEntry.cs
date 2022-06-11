@@ -30,6 +30,7 @@ using ICSharpCode.Decompiler.DebugInfo;
 using ICSharpCode.ILSpy.Properties;
 using ICSharpCode.ILSpy.TextView;
 using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpyX;
 
 using Microsoft.Win32;
 
@@ -98,7 +99,7 @@ namespace ICSharpCode.ILSpy
 		}
 	}
 
-	[ExportMainMenuCommand(Menu = nameof(Resources._File), Header = nameof(Resources.GeneratePortable), MenuCategory = nameof(Resources.Save))]
+	[ExportMainMenuCommand(ParentMenuID = nameof(Resources._File), Header = nameof(Resources.GeneratePortable), MenuCategory = nameof(Resources.Save))]
 	class GeneratePdbMainMenuEntry : SimpleCommand
 	{
 		public override bool CanExecute(object parameter)

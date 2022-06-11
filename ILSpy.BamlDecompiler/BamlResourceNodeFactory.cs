@@ -23,13 +23,15 @@ using System.IO;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.ILSpy;
 using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpyX;
+using ICSharpCode.ILSpyX.Abstractions;
 
 namespace ILSpy.BamlDecompiler
 {
 	[Export(typeof(IResourceNodeFactory))]
 	public sealed class BamlResourceNodeFactory : IResourceNodeFactory
 	{
-		public ILSpyTreeNode CreateNode(Resource resource)
+		public ITreeNode CreateNode(Resource resource)
 		{
 			if (resource.Name.EndsWith(".baml", StringComparison.OrdinalIgnoreCase))
 				return new BamlResourceEntryNode(resource.Name, resource.TryOpenStream);

@@ -21,16 +21,11 @@ using ICSharpCode.ILSpy.Properties;
 
 namespace ICSharpCode.ILSpy
 {
-	[ExportMainMenuCommand(Menu = nameof(Resources._Help), Header = nameof(Resources._CheckUpdates), MenuOrder = 5000)]
+	[ExportMainMenuCommand(ParentMenuID = nameof(Resources._Help), Header = nameof(Resources._CheckUpdates), MenuOrder = 5000)]
 	sealed class CheckForUpdatesCommand : SimpleCommand
 	{
 		public override bool CanExecute(object parameter)
 		{
-			if (StorePackageHelper.HasPackageIdentity)
-			{
-				return false;
-			}
-
 			return base.CanExecute(parameter);
 		}
 

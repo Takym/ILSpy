@@ -376,7 +376,7 @@ namespace ICSharpCode.Decompiler.Tests.TestCases.Pretty.InitializerTests
 			{ 1, 1, 1 }
 		};
 
-#if CS73
+#if CS73 && !NET40
 		public static ReadOnlySpan<byte> StaticData1 => new byte[1] { 0 };
 
 		public static ReadOnlySpan<byte> StaticData3 => new byte[3] { 1, 2, 3 };
@@ -677,6 +677,15 @@ namespace ICSharpCode.Decompiler.Tests.TestCases.Pretty.InitializerTests
 			X(Y(), array);
 		}
 
+		public int[] IndicesInWrongOrderConstantsFull()
+		{
+			int[] array = new int[3];
+			array[0] = 0;
+			array[2] = 1;
+			array[1] = 2;
+			return array;
+		}
+
 		public static byte[] ReverseInitializer(int i)
 		{
 			byte[] array = new byte[4];
@@ -723,6 +732,13 @@ namespace ICSharpCode.Decompiler.Tests.TestCases.Pretty.InitializerTests
 				{ "test", null, "hello", "world" },
 				{ null, "test", "hello", "world" }
 			};
+		}
+
+		private static void OutOfMemory()
+		{
+			byte[] array = new byte[int.MaxValue];
+			array[0] = 1;
+			Console.WriteLine(array.Length);
 		}
 		#endregion
 

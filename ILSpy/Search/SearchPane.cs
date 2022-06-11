@@ -35,10 +35,12 @@ using System.Windows.Threading;
 
 using ICSharpCode.ILSpy.Docking;
 using ICSharpCode.ILSpy.Options;
-using ICSharpCode.ILSpy.Search;
 using ICSharpCode.ILSpy.ViewModels;
+using ICSharpCode.ILSpyX;
+using ICSharpCode.ILSpyX.Extensions;
+using ICSharpCode.ILSpyX.Search;
 
-namespace ICSharpCode.ILSpy
+namespace ICSharpCode.ILSpy.Search
 {
 	/// <summary>
 	/// Search pane
@@ -445,6 +447,9 @@ namespace ICSharpCode.ILSpy
 
 				request.Keywords = keywords.ToArray();
 				request.RegEx = regex;
+				request.SearchResultFactory = new SearchResultFactory(language);
+				request.TreeNodeFactory = new TreeNodeFactory();
+				request.DecompilerSettings = new DecompilationOptions().DecompilerSettings;
 
 				return request;
 			}
@@ -523,7 +528,6 @@ namespace ICSharpCode.ILSpy
 		}
 	}
 
-	[ExportMainMenuCommand(Menu = nameof(Properties.Resources._Window), Header = nameof(Properties.Resources.Search), MenuIcon = "Images/Search", MenuCategory = "pane", MenuOrder = 100)]
 	[ExportToolbarCommand(ToolTip = nameof(Properties.Resources.SearchCtrlShiftFOrCtrlE), ToolbarIcon = "Images/Search", ToolbarCategory = nameof(Properties.Resources.View), ToolbarOrder = 100)]
 	sealed class ShowSearchCommand : CommandWrapper
 	{
@@ -534,21 +538,5 @@ namespace ICSharpCode.ILSpy
 			NavigationCommands.Search.InputGestures.Add(new KeyGesture(Key.F, ModifierKeys.Control | ModifierKeys.Shift));
 			NavigationCommands.Search.InputGestures.Add(new KeyGesture(Key.E, ModifierKeys.Control));
 		}
-	}
-
-	public enum SearchMode
-	{
-		TypeAndMember,
-		Type,
-		Member,
-		Method,
-		Field,
-		Property,
-		Event,
-		Literal,
-		Token,
-		Resource,
-		Assembly,
-		Namespace
 	}
 }

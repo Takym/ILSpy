@@ -24,6 +24,7 @@ using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.OutputVisitor;
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.TypeSystem;
+using ICSharpCode.ILSpyX.Extensions;
 
 namespace ICSharpCode.ILSpy
 {
@@ -230,8 +231,10 @@ namespace ICSharpCode.ILSpy
 				case "class":
 				case "interface":
 				case "delegate":
-				case "record":
 					color = referenceTypeKeywordsColor;
+					break;
+				case "record":
+					color = role == Roles.RecordKeyword ? referenceTypeKeywordsColor : valueTypeKeywordsColor;
 					break;
 				case "select":
 				case "group":

@@ -56,6 +56,7 @@ using ICSharpCode.ILSpy.Options;
 using ICSharpCode.ILSpy.Themes;
 using ICSharpCode.ILSpy.TreeNodes;
 using ICSharpCode.ILSpy.ViewModels;
+using ICSharpCode.ILSpyX;
 
 using Microsoft.Win32;
 
@@ -80,6 +81,7 @@ namespace ICSharpCode.ILSpy.TextView
 		ILSpyTreeNode[]? decompiledNodes;
 		Uri? currentAddress;
 		string? currentTitle;
+		bool expandMemberDefinitions;
 
 		DefinitionLookup? definitionLookup;
 		TextSegmentCollection<ReferenceSegment>? references;
@@ -170,7 +172,7 @@ namespace ICSharpCode.ILSpy.TextView
 
 		#region Line margin
 
-		void CurrentDisplaySettings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		void CurrentDisplaySettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 		{
 			if (e.PropertyName == nameof(DisplaySettings.ShowLineNumbers))
 			{
@@ -216,7 +218,7 @@ namespace ICSharpCode.ILSpy.TextView
 			int offset = textEditor.Document.GetOffset(position.Value.Location);
 			if (referenceElementGenerator.References == null)
 				return;
-			ReferenceSegment seg = referenceElementGenerator.References.FindSegmentsContaining(offset).FirstOrDefault();
+			ReferenceSegment? seg = referenceElementGenerator.References.FindSegmentsContaining(offset).FirstOrDefault();
 			if (seg == null)
 				return;
 			object? content = GenerateTooltip(seg);
@@ -363,7 +365,7 @@ namespace ICSharpCode.ILSpy.TextView
 			TryCloseExistingPopup(true);
 		}
 
-		void ToolTipClosed(object sender, EventArgs e)
+		void ToolTipClosed(object? sender, EventArgs e)
 		{
 			if (toolTip == sender)
 			{
@@ -373,7 +375,10 @@ namespace ICSharpCode.ILSpy.TextView
 			{
 				// Because popupToolTip instances are created by the tooltip provider,
 				// they might be reused; so we should detach the event handler
-				popupToolTip.Closed -= ToolTipClosed;
+				if (popupToolTip != null)
+				{
+					popupToolTip.Closed -= ToolTipClosed;
+				}
 				popupToolTip = null;
 			}
 		}
@@ -515,7 +520,7 @@ namespace ICSharpCode.ILSpy.TextView
 		#endregion
 
 		#region Highlight brackets
-		void HighlightBrackets(object sender, EventArgs e)
+		void HighlightBrackets(object? sender, EventArgs e)
 		{
 			if (DisplaySettingsPanel.CurrentDisplaySettings.HighlightMatchingBraces)
 			{
@@ -569,7 +574,9 @@ namespace ICSharpCode.ILSpy.TextView
 			currentCancellationTokenSource = myCancellationTokenSource;
 			// cancel the previous only after current was set to the new one (avoid that the old one still finishes successfully)
 			if (previousCancellationTokenSource != null)
+			{
 				previousCancellationTokenSource.Cancel();
+			}
 
 			var tcs = new TaskCompletionSource<T>();
 			Task<T> task;
@@ -722,7 +729,7 @@ namespace ICSharpCode.ILSpy.TextView
 			{
 				if (state != null)
 				{
-					state.RestoreFoldings(textOutput.Foldings);
+					state.RestoreFoldings(textOutput.Foldings, DisplaySettingsPanel.CurrentDisplaySettings.ExpandMemberDefinitions);
 					textEditor.ScrollToVerticalOffset(state.VerticalOffset);
 					textEditor.ScrollToHorizontalOffset(state.HorizontalOffset);
 				}
@@ -746,6 +753,7 @@ namespace ICSharpCode.ILSpy.TextView
 			}
 			currentAddress = textOutput.Address;
 			currentTitle = textOutput.Title;
+			expandMemberDefinitions = DisplaySettingsPanel.CurrentDisplaySettings.ExpandMemberDefinitions;
 		}
 		#endregion
 
@@ -1183,6 +1191,7 @@ namespace ICSharpCode.ILSpy.TextView
 				state.SaveFoldingsState(foldingManager.AllFoldings);
 			state.VerticalOffset = textEditor.VerticalOffset;
 			state.HorizontalOffset = textEditor.HorizontalOffset;
+			state.ExpandMemberDefinitions = expandMemberDefinitions;
 			state.DecompiledNodes = decompiledNodes == null ? null : new HashSet<ILSpyTreeNode>(decompiledNodes);
 			state.ViewedUri = currentAddress;
 			return state;
@@ -1248,29 +1257,72 @@ namespace ICSharpCode.ILSpy.TextView
 		{
 			return other != null
 				&& ViewedUri == other.ViewedUri
-				&& (DecompiledNodes == other.DecompiledNodes || DecompiledNodes?.SetEquals(other.DecompiledNodes) == true);
+				&& NullSafeSetEquals(DecompiledNodes, other.DecompiledNodes);
+
+			static bool NullSafeSetEquals(HashSet<ILSpyTreeNode>? a, HashSet<ILSpyTreeNode>? b)
+			{
+				if (a == b)
+					return true;
+				if (a == null || b == null)
+					return false;
+				return a.SetEquals(b);
+			}
 		}
 	}
 
 	public class DecompilerTextViewState : ViewState
 	{
-		private List<Tuple<int, int>>? ExpandedFoldings;
+		private List<(int StartOffset, int EndOffset)>? ExpandedFoldings;
 		private int FoldingsChecksum;
+		public bool ExpandMemberDefinitions;
 		public double VerticalOffset;
 		public double HorizontalOffset;
 
 		public void SaveFoldingsState(IEnumerable<FoldingSection> foldings)
 		{
-			ExpandedFoldings = foldings.Where(f => !f.IsFolded).Select(f => Tuple.Create(f.StartOffset, f.EndOffset)).ToList();
-			FoldingsChecksum = unchecked(foldings.Select(f => f.StartOffset * 3 - f.EndOffset).DefaultIfEmpty().Aggregate((a, b) => a + b));
+			ExpandedFoldings = foldings.Where(f => !f.IsFolded)
+				.Select(f => (f.StartOffset, f.EndOffset)).ToList();
+			FoldingsChecksum = unchecked(foldings.Select(f => f.StartOffset * 3 - f.EndOffset)
+				.DefaultIfEmpty()
+				.Aggregate((a, b) => a + b));
 		}
 
-		internal void RestoreFoldings(List<NewFolding> list)
+		internal void RestoreFoldings(List<NewFolding> list, bool expandMemberDefinitions)
 		{
-			var checksum = unchecked(list.Select(f => f.StartOffset * 3 - f.EndOffset).DefaultIfEmpty().Aggregate((a, b) => a + b));
+			if (ExpandedFoldings == null)
+				return;
+			var checksum = unchecked(list.Select(f => f.StartOffset * 3 - f.EndOffset)
+				.DefaultIfEmpty()
+				.Aggregate((a, b) => a + b));
 			if (FoldingsChecksum == checksum)
+			{
 				foreach (var folding in list)
-					folding.DefaultClosed = !ExpandedFoldings.Any(f => f.Item1 == folding.StartOffset && f.Item2 == folding.EndOffset);
+				{
+					bool wasExpanded = ExpandedFoldings.Any(
+						f => f.StartOffset == folding.StartOffset
+							&& f.EndOffset == folding.EndOffset
+					);
+					bool isExpanded = !folding.DefaultClosed;
+					// State of the folding was changed
+					if (wasExpanded != isExpanded)
+					{
+						// The "ExpandMemberDefinitions" setting was not changed
+						if (expandMemberDefinitions == ExpandMemberDefinitions)
+						{
+							// restore fold state
+							folding.DefaultClosed = !wasExpanded;
+						}
+						else
+						{
+							// only restore fold state if fold was not a definition
+							if (!folding.IsDefinition)
+							{
+								folding.DefaultClosed = !wasExpanded;
+							}
+						}
+					}
+				}
+			}
 		}
 
 		public override bool Equals(ViewState? other)
@@ -1301,17 +1353,21 @@ namespace ICSharpCode.ILSpy.TextView
 
 			resourceName += ".xshd";
 
-			manager.RegisterHighlighting(
-				name, extensions,
-				delegate {
-					using (Stream s = typeof(DecompilerTextView).Assembly.GetManifestResourceStream(typeof(DecompilerTextView), resourceName))
-					{
-						using (XmlTextReader reader = new XmlTextReader(s))
+			Stream? resourceStream = typeof(DecompilerTextView).Assembly
+				.GetManifestResourceStream(typeof(DecompilerTextView), resourceName);
+
+			if (resourceStream != null)
+			{
+				manager.RegisterHighlighting(
+					name, extensions,
+					delegate {
+						using (resourceStream)
+						using (XmlTextReader reader = new XmlTextReader(resourceStream))
 						{
 							return HighlightingLoader.Load(reader, manager);
 						}
-					}
-				});
+					});
+			}
 		}
 	}
 }

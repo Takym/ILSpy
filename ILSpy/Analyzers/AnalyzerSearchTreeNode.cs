@@ -24,6 +24,7 @@ using System.Threading;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.ILSpy.Analyzers.TreeNodes;
 using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpyX;
 
 namespace ICSharpCode.ILSpy.Analyzers
 {
@@ -42,7 +43,8 @@ namespace ICSharpCode.ILSpy.Analyzers
 			this.analyzerHeader = analyzerHeader;
 		}
 
-		public override object Text => analyzerHeader + (Children.Count > 0 ? " (" + Children.Count + ")" : "");
+		public override object Text => analyzerHeader
+			+ (Children.Count > 0 && !threading.IsRunning ? " (" + Children.Count + " in " + threading.EllapsedMilliseconds + "ms)" : "");
 
 		public override object Icon => Images.Search;
 
@@ -60,10 +62,12 @@ namespace ICSharpCode.ILSpy.Analyzers
 					Language = Language,
 					AssemblyList = MainWindow.Instance.CurrentAssemblyList
 				};
-				foreach (var result in analyzer.Analyze(symbol, context))
+				var results = analyzer.Analyze(symbol, context).Select(SymbolTreeNodeFactory);
+				if (context.SortResults)
 				{
-					yield return SymbolTreeNodeFactory(result);
+					results = results.OrderBy(tn => tn.Text?.ToString(), NaturalStringComparer.Instance);
 				}
+				return results;
 			}
 			else
 			{
@@ -117,6 +121,7 @@ namespace ICSharpCode.ILSpy.Analyzers
 				this.LazyLoading = true;
 				threading.Cancel();
 				this.Children.Clear();
+				RaisePropertyChanged(nameof(Text));
 			}
 		}
 
@@ -134,6 +139,7 @@ namespace ICSharpCode.ILSpy.Analyzers
 				this.LazyLoading = true;
 				threading.Cancel();
 				this.Children.Clear();
+				RaisePropertyChanged(nameof(Text));
 			}
 			return true;
 		}
