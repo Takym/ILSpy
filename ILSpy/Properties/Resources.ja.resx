@@ -121,24 +121,24 @@
     <value>このソフトウェアについて</value>
   </data>
   <data name="AddPreconfiguredList" xml:space="preserve">
-    <value>Add preconfigured list...</value>
+    <value>事前構成された一覧を追加...</value>
   </data>
   <data name="AddShellIntegration" xml:space="preserve">
-    <value>Add shell integration</value>
+    <value>シェル統合を追加</value>
   </data>
   <data name="AddShellIntegrationMessage" xml:space="preserve">
-    <value>This will add "{0}" to the registry at "HKCU\Software\Classes\dllfile\shell\Open with ILSpy\command" and "HKCU\Software\Classes\exefile\shell\Open with ILSpy\command" to allow opening .dll and .exe files from the Windows Explorer context menu.
+    <value>.dll ファイルと .exe ファイルを Windows エクスプローラーのコンテキストメニューから開く為に、レジストリ「HKCU\Software\Classes\dllfile\shell\Open with ILSpy\command」と「HKCU\Software\Classes\exefile\shell\Open with ILSpy\command」に「{0}」を追加します。
 
-Do you want to continue?</value>
+続行してもよろしいですか？</value>
   </data>
   <data name="AllFiles" xml:space="preserve">
     <value>|全てのファイル|*.*</value>
   </data>
   <data name="AllowMultipleInstances" xml:space="preserve">
-    <value>Allow multiple instances</value>
+    <value>複数のインスタンスを許可する</value>
   </data>
   <data name="AlwaysBraces" xml:space="preserve">
-    <value>Always use braces</value>
+    <value>常に波括弧を使用する</value>
   </data>
   <data name="Analyze" xml:space="preserve">
     <value>解析</value>
@@ -150,11 +150,11 @@ Do you want to continue?</value>
     <value>アセンブリ</value>
   </data>
   <data name="AssemblySaveCodeDirectoryNotEmpty" xml:space="preserve">
-    <value>The directory is not empty. File will be overwritten.
-Are you sure you want to continue?</value>
+    <value>このディレクトリは空ではありません。ファイルは上書きされます。
+続行してもよろしいですか？</value>
   </data>
   <data name="AssemblySaveCodeDirectoryNotEmptyTitle" xml:space="preserve">
-    <value>Project Directory not empty</value>
+    <value>空ではないプロジェクトディレクトリ</value>
   </data>
   <data name="AutomaticallyCheckUpdatesEveryWeek" xml:space="preserve">
     <value>一週間毎に自動で更新を確認する</value>
@@ -238,7 +238,7 @@ Are you sure you want to continue?</value>
     <value>Decompilation view options</value>
   </data>
   <data name="DecompilationWasCancelled" xml:space="preserve">
-    <value>Decompilation was cancelled.</value>
+    <value>逆コンパイルは取り消されました。</value>
   </data>
   <data name="Decompile" xml:space="preserve">
     <value>逆コンパイル</value>
@@ -268,7 +268,7 @@ Are you sure you want to continue?</value>
     <value>Always show enum member values</value>
   </data>
   <data name="DecompilerSettings.AlwaysUseBraces" xml:space="preserve">
-    <value>Always use braces</value>
+    <value>常に波括弧を使用する</value>
   </data>
   <data name="DecompilerSettings.ApplyWindowsRuntimeProjectionsOnLoadedAssemblies" xml:space="preserve">
     <value>Apply Windows Runtime projections on loaded assemblies</value>
@@ -388,7 +388,7 @@ Are you sure you want to continue?</value>
     <value>Decompile ?. and ?[] operators</value>
   </data>
   <data name="DecompilerSettings.NullableReferenceTypes" xml:space="preserve">
-    <value>Nullable reference types</value>
+    <value>null 許容参照型</value>
   </data>
   <data name="DecompilerSettings.ObjectCollectionInitializerExpressions" xml:space="preserve">
     <value>Object/collection initializer expressions</value>
@@ -400,7 +400,7 @@ Are you sure you want to continue?</value>
     <value>Use pattern matching expressions</value>
   </data>
   <data name="DecompilerSettings.ProjectExport" xml:space="preserve">
-    <value>Project export</value>
+    <value>プロジェクトのエクスポート</value>
   </data>
   <data name="DecompilerSettings.Ranges" xml:space="preserve">
     <value>範囲</value>
@@ -436,7 +436,7 @@ Are you sure you want to continue?</value>
     <value>switch 式</value>
   </data>
   <data name="DecompilerSettings.UseDiscards" xml:space="preserve">
-    <value>Use discards</value>
+    <value>破棄を使用する</value>
   </data>
   <data name="DecompilerSettings.UseEnhancedUsing" xml:space="preserve">
     <value>Use enhanced using variable declarations</value>
@@ -779,7 +779,7 @@ Do you want to continue?</value>
     <value>検索 (Ctrl+Shift+F または Ctrl+E)</value>
   </data>
   <data name="SearchMSDN" xml:space="preserve">
-    <value>Microsoft Docs で検索...</value>
+    <value>Microsoft Learn で検索...</value>
   </data>
   <data name="SearchPane_Search" xml:space="preserve">
     <value>検索</value>
@@ -887,7 +887,7 @@ Do you want to continue?</value>
     <value>文字列表</value>
   </data>
   <data name="StyleTheWindowTitleBar" xml:space="preserve">
-    <value>Style the window title bar</value>
+    <value>ウィンドウの題名を整える</value>
   </data>
   <data name="TabSize" xml:space="preserve">
     <value>タブのサイズ：</value>
@@ -932,7 +932,7 @@ Do you want to continue?</value>
     <value>文字列値</value>
   </data>
   <data name="VariableNamesFromDebugSymbolsAvailable" xml:space="preserve">
-    <value>Use variable names from debug symbols, if available</value>
+    <value>利用可能である時に、デバッグシンボルからの変数名を使用する。</value>
   </data>
   <data name="Version" xml:space="preserve">
     <value>バージョン</value>
