@@ -45,12 +45,15 @@ using ICSharpCode.Decompiler.TypeSystem.Implementation;
 using ICSharpCode.ILSpy.Analyzers;
 using ICSharpCode.ILSpy.Commands;
 using ICSharpCode.ILSpy.Docking;
+using ICSharpCode.ILSpy.Options;
 using ICSharpCode.ILSpy.Search;
 using ICSharpCode.ILSpy.TextView;
 using ICSharpCode.ILSpy.Themes;
 using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Updates;
 using ICSharpCode.ILSpy.ViewModels;
 using ICSharpCode.ILSpyX;
+using ICSharpCode.ILSpyX.Settings;
 using ICSharpCode.TreeView;
 
 using Microsoft.Win32;
@@ -100,15 +103,27 @@ namespace ICSharpCode.ILSpy
 			}
 		}
 
+		public DecompilerSettings CurrentDecompilerSettings { get; internal set; }
+
+		public DisplaySettingsViewModel CurrentDisplaySettings { get; internal set; }
+
+		public DecompilationOptions CreateDecompilationOptions()
+		{
+			var decompilerView = DockWorkspace.Instance.ActiveTabPage.Content as IProgress<DecompilationProgress>;
+			return new DecompilationOptions(CurrentLanguageVersion, CurrentDecompilerSettings, CurrentDisplaySettings) { Progress = decompilerView };
+		}
+
 		public MainWindow()
 		{
 			instance = this;
 			var spySettings = ILSpySettings.Load();
 			this.spySettingsForMainWindow_Loaded = spySettings;
 			this.sessionSettings = new SessionSettings(spySettings);
+			this.CurrentDecompilerSettings = DecompilerSettingsPanel.LoadDecompilerSettings(spySettings);
+			this.CurrentDisplaySettings = DisplaySettingsPanel.LoadDisplaySettings(spySettings);
 			this.AssemblyListManager = new AssemblyListManager(spySettings) {
-				ApplyWinRTProjections = Options.DecompilerSettingsPanel.CurrentDecompilerSettings.ApplyWindowsRuntimeProjections,
-				UseDebugSymbols = Options.DecompilerSettingsPanel.CurrentDecompilerSettings.UseDebugSymbols
+				ApplyWinRTProjections = CurrentDecompilerSettings.ApplyWindowsRuntimeProjections,
+				UseDebugSymbols = CurrentDecompilerSettings.UseDebugSymbols
 			};
 
 			// Make sure Images are initialized on the UI thread.
@@ -170,7 +185,7 @@ namespace ICSharpCode.ILSpy
 				case nameof(SessionSettings.ActiveAssemblyList):
 					ShowAssemblyList(sessionSettings.ActiveAssemblyList);
 					break;
-				case nameof(SessionSettings.IsDarkMode):
+				case nameof(SessionSettings.Theme):
 					// update syntax highlighting and force reload (AvalonEdit does not automatically refresh on highlighting change)
 					DecompilerTextView.RegisterHighlighting();
 					DecompileSelectedNodes(DockWorkspace.Instance.ActiveTabPage.GetState() as DecompilerTextViewState);
@@ -567,7 +582,7 @@ namespace ICSharpCode.ILSpy
 			{
 				hwndSource.AddHook(WndProc);
 			}
-			App.ReleaseSingleInstanceMutex();
+			SingleInstanceHandling.ReleaseSingleInstanceMutex();
 			// Validate and Set Window Bounds
 			Rect bounds = Rect.Transform(sessionSettings.WindowBounds, source.CompositionTarget.TransformToDevice);
 			var boundsRect = new System.Drawing.Rectangle((int)bounds.Left, (int)bounds.Top, (int)bounds.Width, (int)bounds.Height);
@@ -940,13 +955,14 @@ namespace ICSharpCode.ILSpy
 			string downloadUrl;
 			if (forceCheck)
 			{
-				downloadUrl = await AboutPage.CheckForUpdatesAsync(spySettings);
+				downloadUrl = await NotifyOfUpdatesStrategy.CheckForUpdatesAsync(spySettings);
 			}
 			else
 			{
-				downloadUrl = await AboutPage.CheckForUpdatesIfEnabledAsync(spySettings);
+				downloadUrl = await NotifyOfUpdatesStrategy.CheckForUpdatesIfEnabledAsync(spySettings);
 			}
 
+			// The Update Panel is only available for NotifyOfUpdatesStrategy, AutoUpdate will have differing UI requirements
 			AdjustUpdateUIAfterCheck(downloadUrl, forceCheck);
 		}
 
@@ -964,7 +980,7 @@ namespace ICSharpCode.ILSpy
 			else
 			{
 				updatePanel.Visibility = Visibility.Collapsed;
-				string downloadUrl = await AboutPage.CheckForUpdatesAsync(ILSpySettings.Load());
+				string downloadUrl = await NotifyOfUpdatesStrategy.CheckForUpdatesAsync(ILSpySettings.Load());
 				AdjustUpdateUIAfterCheck(downloadUrl, true);
 			}
 		}
@@ -1075,8 +1091,10 @@ namespace ICSharpCode.ILSpy
 			// filterSettings is mutable; but the ILSpyTreeNode filtering assumes that filter settings are immutable.
 			// Thus, the main window will use one mutable instance (for data-binding), and assign a new clone to the ILSpyTreeNodes whenever the main
 			// mutable instance changes.
+			FilterSettings filterSettings = DockWorkspace.Instance.ActiveTabPage.FilterSettings.Clone();
 			if (assemblyListTreeNode != null)
-				assemblyListTreeNode.FilterSettings = DockWorkspace.Instance.ActiveTabPage.FilterSettings.Clone();
+				assemblyListTreeNode.FilterSettings = filterSettings;
+			SearchPane.UpdateFilter(filterSettings);
 		}
 
 		internal AssemblyListTreeNode AssemblyListTreeNode {
@@ -1415,7 +1433,7 @@ namespace ICSharpCode.ILSpy
 				refreshInProgress = true;
 				var path = GetPathForNode(AssemblyTreeView.SelectedItem as SharpTreeNode);
 				ShowAssemblyList(AssemblyListManager.LoadList(assemblyList.ListName));
-				SelectNode(FindNodeByPath(path, true), false, false);
+				SelectNode(FindNodeByPath(path, true), inNewTabPage: false, AssemblyTreeView.IsFocused);
 			}
 			finally
 			{
@@ -1494,7 +1512,8 @@ namespace ICSharpCode.ILSpy
 				NavigateTo(new RequestNavigateEventArgs(newState.ViewedUri, null), recordHistory: false);
 				return;
 			}
-			var options = new DecompilationOptions() { TextViewState = newState };
+			var options = MainWindow.Instance.CreateDecompilationOptions();
+			options.TextViewState = newState;
 			decompilationTask = DockWorkspace.Instance.ActiveTabPage.ShowTextViewAsync(
 				textView => textView.DecompileAsync(this.CurrentLanguage, this.SelectedNodes, options)
 			);

@@ -8,6 +8,7 @@
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
     <BaseAddress>6488064</BaseAddress>
     <UseWpf>true</UseWpf>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -29,11 +30,6 @@
 
   <ItemGroup>
     <Compile Remove="Baml\KnownThings.gen.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AvalonEdit" Version="$(AvalonEditVersion)" />
-    <PackageReference Include="System.Composition" Version="$(SystemCompositionVersion)" />
   </ItemGroup>
 
   <ItemGroup>

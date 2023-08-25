@@ -18,25 +18,29 @@
 
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Security.Principal;
 using System.Windows;
 using System.Windows.Input;
 
 using ICSharpCode.ILSpy.Commands;
+using ICSharpCode.ILSpyX.Settings;
 
 using Microsoft.Win32;
 
 namespace ICSharpCode.ILSpy.Options
 {
-	public class MiscSettings : INotifyPropertyChanged
+	public class MiscSettingsViewModel : IMiscSettings, INotifyPropertyChanged
 	{
 		bool allowMultipleInstances;
 		bool loadPreviousAssemblies = true;
 
-		public MiscSettings()
+		public MiscSettingsViewModel(MiscSettings s)
 		{
+			AllowMultipleInstances = s.AllowMultipleInstances;
+			LoadPreviousAssemblies = s.LoadPreviousAssemblies;
+
 			AddRemoveShellIntegrationCommand = new DelegateCommand<object>(AddRemoveShellIntegration);
 		}
 
@@ -75,7 +79,7 @@ namespace ICSharpCode.ILSpy.Options
 
 		private void AddRemoveShellIntegration(object obj)
 		{
-			string commandLine = NativeMethods.ArgumentArrayToCommandLine(Assembly.GetEntryAssembly().Location) + " \"%L\"";
+			string commandLine = NativeMethods.ArgumentArrayToCommandLine(Path.ChangeExtension(Assembly.GetEntryAssembly().Location, ".exe")) + " \"%L\"";
 			if (RegistryEntriesExist())
 			{
 				if (MessageBox.Show(string.Format(Properties.Resources.RemoveShellIntegrationMessage, commandLine), "ILSpy", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)

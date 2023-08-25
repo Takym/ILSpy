@@ -78,7 +78,8 @@ namespace ICSharpCode.ILSpy
 
 		public static ICompilation? GetTypeSystemWithCurrentOptionsOrNull(this PEFile file)
 		{
-			return LoadedAssemblyExtensions.GetLoadedAssembly(file).GetTypeSystemOrNull(DecompilerTypeSystem.GetOptions(new DecompilationOptions().DecompilerSettings));
+			return LoadedAssemblyExtensions.GetLoadedAssembly(file)
+				.GetTypeSystemOrNull(DecompilerTypeSystem.GetOptions(MainWindow.Instance.CurrentDecompilerSettings));
 		}
 
 		#region DPI independence
@@ -159,6 +160,11 @@ namespace ICSharpCode.ILSpy
 			if (container != null)
 				container.IsSelected = true;
 			view.Focus();
+		}
+
+		public static double ToGray(this Color? color)
+		{
+			return color?.R * 0.3 + color?.G * 0.6 + color?.B * 0.1 ?? 0.0;
 		}
 	}
 }

@@ -58,6 +58,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		Dictionary<MethodDefinitionHandle, string> localFunctionMapping;
 		HashSet<ILVariable> loopCounters;
 		const char maxLoopVariableName = 'n';
+		int numDisplayClassLocals;
 
 		public void Run(ILFunction function, ILTransformContext context)
 		{
@@ -151,6 +152,7 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 						AddExistingName(reservedVariableNames, p.Name);
 				}
 			}
+			numDisplayClassLocals = 0;
 			foreach (ILFunction f in function.Descendants.OfType<ILFunction>().Reverse())
 			{
 				PerformAssignment(f);
@@ -165,11 +167,9 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 
 		static IEnumerable<string> CollectAllLowerCaseTypeNames(ITypeDefinition type)
 		{
-
-			foreach (var item in type.ParentModule.TopLevelTypeDefinitions)
+			var ns = type.ParentModule.Compilation.GetNamespaceByFullName(type.Namespace);
+			foreach (var item in ns.Types)
 			{
-				if (item.Namespace != type.Namespace)
-					continue;
 				if (IsLowerCase(item.Name))
 					yield return item.Name;
 			}
@@ -197,7 +197,6 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 		{
 			// remove unused variables before assigning names
 			function.Variables.RemoveDead();
-			int numDisplayClassLocals = 0;
 			Dictionary<int, string> assignedLocalSignatureIndices = new Dictionary<int, string>();
 			foreach (var v in function.Variables.OrderBy(v => v.Name))
 			{
@@ -433,12 +432,25 @@ namespace ICSharpCode.Decompiler.IL.Transforms
 			}
 			if (string.IsNullOrEmpty(proposedName))
 			{
-				var proposedNameForStores = variable.StoreInstructions.OfType<StLoc>()
-					.Select(expr => GetNameFromInstruction(expr.Value))
-					.Except(currentLowerCaseTypeOrMemberNames).ToList();
+				var proposedNameForStores = new HashSet<string>();
+				foreach (var store in variable.StoreInstructions)
+				{
+					if (store is StLoc stloc)
+					{
+						var name = GetNameFromInstruction(stloc.Value);
+						if (!currentLowerCaseTypeOrMemberNames.Contains(name))
+							proposedNameForStores.Add(name);
+					}
+					else if (store is MatchInstruction match && match.SlotInfo == MatchInstruction.SubPatternsSlot)
+					{
+						var name = GetNameFromInstruction(match.TestedOperand);
+						if (!currentLowerCaseTypeOrMemberNames.Contains(name))
+							proposedNameForStores.Add(name);
+					}
+				}
 				if (proposedNameForStores.Count == 1)
 				{
-					proposedName = proposedNameForStores[0];
+					proposedName = proposedNameForStores.Single();
 				}
 			}
 			if (string.IsNullOrEmpty(proposedName))

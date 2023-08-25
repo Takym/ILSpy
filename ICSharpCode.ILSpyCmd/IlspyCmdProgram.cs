@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Threading;
+using System.Threading.Tasks;
 
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
@@ -20,6 +21,10 @@ using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.ILSpyX.PdbProvider;
 
 using McMaster.Extensions.CommandLineUtils;
+
+using Microsoft.Extensions.Hosting;
+
+using NuGet.Versioning;
 
 namespace ICSharpCode.ILSpyCmd
 {
@@ -48,7 +53,9 @@ Examples:
 		MemberName = nameof(DecompilerVersion))]
 	class ILSpyCmdProgram
 	{
-		public static int Main(string[] args) => CommandLineApplication.Execute<ILSpyCmdProgram>(args);
+		// https://natemcmaster.github.io/CommandLineUtils/docs/advanced/generic-host.html
+		// https://github.com/natemcmaster/CommandLineUtils/blob/main/docs/samples/dependency-injection/generic-host/Program.cs
+		public static Task<int> Main(string[] args) => new HostBuilder().RunCommandLineApplicationAsync<ILSpyCmdProgram>(args);
 
 		[FilesExist]
 		[Required]
@@ -86,13 +93,13 @@ Examples:
 				typeof(FullTypeName).Assembly.GetName().Version.ToString();
 
 		[Option("-lv|--languageversion <version>", "C# Language version: CSharp1, CSharp2, CSharp3, " +
-			"CSharp4, CSharp5, CSharp6, CSharp7_0, CSharp7_1, CSharp7_2, CSharp7_3, CSharp8_0, CSharp9_0, " +
-			"CSharp_10_0 or Latest", CommandOptionType.SingleValue)]
+			"CSharp4, CSharp5, CSharp6, CSharp7, CSharp7_1, CSharp7_2, CSharp7_3, CSharp8_0, CSharp9_0, " +
+			"CSharp10_0, Preview or Latest", CommandOptionType.SingleValue)]
 		public LanguageVersion LanguageVersion { get; } = LanguageVersion.Latest;
 
 		[DirectoryExists]
 		[Option("-r|--referencepath <path>", "Path to a directory containing dependencies of the assembly that is being decompiled.", CommandOptionType.MultipleValue)]
-		public string[] ReferencePaths { get; } = new string[0];
+		public string[] ReferencePaths { get; }
 
 		[Option("--no-dead-code", "Remove dead code.", CommandOptionType.NoValue)]
 		public bool RemoveDeadCode { get; }
@@ -100,20 +107,35 @@ Examples:
 		[Option("--no-dead-stores", "Remove dead stores.", CommandOptionType.NoValue)]
 		public bool RemoveDeadStores { get; }
 
-		[Option("-d|--dump-package", "Dump package assembiles into a folder. This requires the output directory option.", CommandOptionType.NoValue)]
+		[Option("-d|--dump-package", "Dump package assemblies into a folder. This requires the output directory option.", CommandOptionType.NoValue)]
 		public bool DumpPackageFlag { get; }
 
 		[Option("--nested-directories", "Use nested directories for namespaces.", CommandOptionType.NoValue)]
 		public bool NestedDirectories { get; }
 
-		private int OnExecute(CommandLineApplication app)
-		{
-			TextWriter output = System.Console.Out;
-			bool outputDirectorySpecified = !string.IsNullOrEmpty(OutputDirectory);
+		[Option("--disable-updatecheck", "If using ilspycmd in a tight loop or fully automated scenario, you might want to disable the automatic update check.", CommandOptionType.NoValue)]
+		public bool DisableUpdateCheck { get; }
 
-			if (outputDirectorySpecified)
+		private readonly IHostEnvironment _env;
+		public ILSpyCmdProgram(IHostEnvironment env)
+		{
+			_env = env;
+		}
+
+		private async Task<int> OnExecuteAsync(CommandLineApplication app)
+		{
+			Task<NuGetVersion> updateCheckTask = null;
+			if (!DisableUpdateCheck)
 			{
-				Directory.CreateDirectory(OutputDirectory);
+				updateCheckTask = DotNetToolUpdateChecker.CheckForPackageUpdateAsync("ilspycmd");
+			}
+
+			TextWriter output = System.Console.Out;
+			string outputDirectory = ResolveOutputDirectory(OutputDirectory);
+
+			if (outputDirectory != null)
+			{
+				Directory.CreateDirectory(outputDirectory);
 			}
 
 			try
@@ -122,19 +144,19 @@ Examples:
 				{
 					if (InputAssemblyNames.Length == 1)
 					{
-						string projectFileName = Path.Combine(Environment.CurrentDirectory, OutputDirectory, Path.GetFileNameWithoutExtension(InputAssemblyNames[0]) + ".csproj");
+						string projectFileName = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(InputAssemblyNames[0]) + ".csproj");
 						DecompileAsProject(InputAssemblyNames[0], projectFileName);
 						return 0;
 					}
 					var projects = new List<ProjectItem>();
 					foreach (var file in InputAssemblyNames)
 					{
-						string projectFileName = Path.Combine(Environment.CurrentDirectory, OutputDirectory, Path.GetFileNameWithoutExtension(file), Path.GetFileNameWithoutExtension(file) + ".csproj");
+						string projectFileName = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(file), Path.GetFileNameWithoutExtension(file) + ".csproj");
 						Directory.CreateDirectory(Path.GetDirectoryName(projectFileName));
 						ProjectId projectId = DecompileAsProject(file, projectFileName);
 						projects.Add(new ProjectItem(projectFileName, projectId.PlatformName, projectId.Guid, projectId.TypeGuid));
 					}
-					SolutionCreator.WriteSolutionFile(Path.Combine(Environment.CurrentDirectory, OutputDirectory, Path.GetFileNameWithoutExtension(OutputDirectory) + ".sln"), projects);
+					SolutionCreator.WriteSolutionFile(Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(outputDirectory) + ".sln"), projects);
 					return 0;
 				}
 				else
@@ -156,6 +178,16 @@ Examples:
 			finally
 			{
 				output.Close();
+
+				if (null != updateCheckTask)
+				{
+					var latestVersion = await updateCheckTask;
+					if (null != latestVersion)
+					{
+						Console.WriteLine("You are not using the latest version of the tool, please update.");
+						Console.WriteLine($"Latest version is '{latestVersion}'");
+					}
+				}
 			}
 
 			int PerformPerFileAction(string fileName)
@@ -164,20 +196,20 @@ Examples:
 				{
 					var values = EntityTypes.SelectMany(v => v.Split(',', ';')).ToArray();
 					HashSet<TypeKind> kinds = TypesParser.ParseSelection(values);
-					if (outputDirectorySpecified)
+					if (outputDirectory != null)
 					{
 						string outputName = Path.GetFileNameWithoutExtension(fileName);
-						output = File.CreateText(Path.Combine(OutputDirectory, outputName) + ".list.txt");
+						output = File.CreateText(Path.Combine(outputDirectory, outputName) + ".list.txt");
 					}
 
 					return ListContent(fileName, output, kinds);
 				}
 				else if (ShowILCodeFlag || ShowILSequencePointsFlag)
 				{
-					if (outputDirectorySpecified)
+					if (outputDirectory != null)
 					{
 						string outputName = Path.GetFileNameWithoutExtension(fileName);
-						output = File.CreateText(Path.Combine(OutputDirectory, outputName) + ".il");
+						output = File.CreateText(Path.Combine(outputDirectory, outputName) + ".il");
 					}
 
 					return ShowIL(fileName, output);
@@ -185,10 +217,10 @@ Examples:
 				else if (CreateDebugInfoFlag)
 				{
 					string pdbFileName = null;
-					if (outputDirectorySpecified)
+					if (outputDirectory != null)
 					{
 						string outputName = Path.GetFileNameWithoutExtension(fileName);
-						pdbFileName = Path.Combine(OutputDirectory, outputName) + ".pdb";
+						pdbFileName = Path.Combine(outputDirectory, outputName) + ".pdb";
 					}
 					else
 					{
@@ -199,20 +231,30 @@ Examples:
 				}
 				else if (DumpPackageFlag)
 				{
-					return DumpPackageAssemblies(fileName, OutputDirectory, app);
+					return DumpPackageAssemblies(fileName, outputDirectory, app);
 				}
 				else
 				{
-					if (outputDirectorySpecified)
+					if (outputDirectory != null)
 					{
 						string outputName = Path.GetFileNameWithoutExtension(fileName);
-						output = File.CreateText(Path.Combine(OutputDirectory,
+						output = File.CreateText(Path.Combine(outputDirectory,
 							(string.IsNullOrEmpty(TypeName) ? outputName : TypeName) + ".decompiled.cs"));
 					}
 
 					return Decompile(fileName, output, TypeName);
 				}
 			}
+		}
+
+		private static string ResolveOutputDirectory(string outputDirectory)
+		{
+			// path is not set
+			if (string.IsNullOrWhiteSpace(outputDirectory))
+				return null;
+			// resolve relative path, backreferences ('.' and '..') and other
+			// platform-specific path elements, like '~'.
+			return Path.GetFullPath(outputDirectory);
 		}
 
 		DecompilerSettings GetSettings(PEFile module)
@@ -230,7 +272,7 @@ Examples:
 		{
 			var module = new PEFile(assemblyFileName);
 			var resolver = new UniversalAssemblyResolver(assemblyFileName, false, module.Metadata.DetectTargetFrameworkId());
-			foreach (var path in ReferencePaths)
+			foreach (var path in (ReferencePaths ?? Array.Empty<string>()))
 			{
 				resolver.AddSearchDirectory(path);
 			}
@@ -268,7 +310,7 @@ Examples:
 		{
 			var module = new PEFile(assemblyFileName);
 			var resolver = new UniversalAssemblyResolver(assemblyFileName, false, module.Metadata.DetectTargetFrameworkId());
-			foreach (var path in ReferencePaths)
+			foreach (var path in (ReferencePaths ?? Array.Empty<string>()))
 			{
 				resolver.AddSearchDirectory(path);
 			}
@@ -332,6 +374,12 @@ Examples:
 					{
 						Stream contents;
 
+						if (entry.RelativePath.Replace('\\', '/').Contains("../", StringComparison.Ordinal) || Path.IsPathRooted(entry.RelativePath))
+						{
+							app.Error.WriteLine($"Skipping single-file entry '{entry.RelativePath}' because it might refer to a location outside of the bundle output directory.");
+							continue;
+						}
+
 						if (entry.CompressedSize == 0)
 						{
 							contents = new UnmanagedMemoryStream(packageView.SafeMemoryMappedViewHandle, entry.Offset, entry.Size);
@@ -347,7 +395,7 @@ Examples:
 
 							if (decompressedStream.Length != entry.Size)
 							{
-								app.Error.WriteLine($"Corrupted single-file entry '${entry.RelativePath}'. Declared decompressed size '${entry.Size}' is not the same as actual decompressed size '${decompressedStream.Length}'.");
+								app.Error.WriteLine($"Corrupted single-file entry '{entry.RelativePath}'. Declared decompressed size '{entry.Size}' is not the same as actual decompressed size '{decompressedStream.Length}'.");
 								return ProgramExitCodes.EX_DATAERR;
 							}
 
@@ -355,7 +403,9 @@ Examples:
 							contents = decompressedStream;
 						}
 
-						using (var fileStream = File.Create(Path.Combine(outputDirectory, entry.RelativePath)))
+						string target = Path.Combine(outputDirectory, entry.RelativePath);
+						Directory.CreateDirectory(Path.GetDirectoryName(target));
+						using (var fileStream = File.Create(target))
 						{
 							contents.CopyTo(fileStream);
 						}
